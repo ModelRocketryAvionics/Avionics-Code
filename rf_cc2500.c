@@ -129,6 +129,12 @@
 #define RF_SSI_GPIO_RX      GPIO_PIN_2
 #define RF_SSI_GPIO_TX      GPIO_PIN_3
 
+//PE5 connected to GDO0 which acts as an interrupt pin for a received packet
+#define RF_GPIO_INTERRUPT   GPIO_PIN_5
+
+#define RF_ADDRESS          69
+#define RF_PACKET_LENGTH    20
+
 
 //#############################################//
 //                CC2500 Variables
@@ -140,60 +146,151 @@
 //                CC2500 Functions
 //#############################################//
 
-void RFCC2500ChipSelectOn() {
+void RFChipSelectOn() {
     GPIOPinWrite(GPIO_PORTD_BASE, RF_SSI_GPIO_FSS, 0);
 }
 
-void RFCC2500ChipSelectOff() {
+void RFChipSelectOff() {
     GPIOPinWrite(GPIO_PORTD_BASE, RF_SSI_GPIO_FSS, RF_SSI_GPIO_FSS);
 }
 
-uint32_t RFCC2500WriteByte(uint8_t reg) {
-
-    //Put our single byte in the Tx FIFO
+uint32_t RFWriteByte(uint8_t reg) {
     SSIDataPut(SSI1_BASE, reg);
-
-    //Check that the SSI bus isn't busy
-    //TODO: FIX THIS TO BE LESS TERRIBLE!
-    //while(SSIBusy(SSI1_BASE)) {}
 
     uint32_t ui32Data;
     SSIDataGet(SSI1_BASE, &ui32Data);
     return ui32Data;
 }
 
-uint32_t RFCC2500WriteRegister(uint8_t reg, uint8_t value) {
-    RFCC2500ChipSelectOn();
-    RFCC2500WriteByte(reg);
-    uint32_t result = RFCC2500WriteByte(value);
-    RFCC2500ChipSelectOff();
+/*
+ * RFWriteRegisteR(reg, value)
+ *  Writes the register with address reg with value.
+ *   reg should be ORd or Added with the correct access mode
+ *  This function DOES NOT handle the chip select line!
+ */
+uint32_t RFWriteRegister(uint8_t reg, uint8_t value) {
+    RFWriteByte(reg);
+    return RFWriteByte(value);
+}
+
+/*
+ * RFWriteRegisteR(reg, value)
+ *  Writes the register with address reg with value.
+ *   reg should be ORd or Added with the correct access mode
+ *  This function HANDLES the chip select line!
+ */
+uint32_t RFWriteRegisterCS(uint8_t reg, uint8_t value) {
+    RFChipSelectOn();
+
+    uint32_t result = RFWriteRegister(reg, value);
+
+    RFChipSelectOff();
     return result;
 }
 
-uint8_t RFCC2500ReadRegister(uint8_t reg) {
-    RFCC2500ChipSelectOn();
+/*
+ * RFReadRegister(reg)
+ *  Returns the register with address register.
+ *   reg should be ORd or Added with the correct access mode
+ *  This function DOES NOT handle the chip select line!
+ */
+uint8_t RFReadRegister(uint8_t reg) {
+    return RFWriteRegister(reg, 0x00);
+}
 
-    RFCC2500WriteByte(reg);
-    //Write dummy byte to clock slave and return result
-    uint8_t result = RFCC2500WriteByte(0x00);
+/*
+ * RFReadRegister(reg)
+ *  Returns the register with address register.
+ *   reg should be ORd or Added with the correct access mode
+ *  This function HANDLES the CS line.
+ */
+uint8_t RFReadRegisterCS(uint8_t reg) {
+    return RFWriteRegisterCS(reg, 0x00);
+}
 
-    RFCC2500ChipSelectOff();
+/*
+ * RFSendStrobe(reg)
+ *  Sends the single byte strobe command and returns the status byte
+ */
+uint8_t RFSendStrobe(uint8_t reg) {
+    return RFWriteByte(reg);;
+}
+
+/*
+ * RFSendStrobeCS(reg)
+ *  Sends the single byte strobe command and returns the status byte
+ */
+uint8_t RFSendStrobeCS(uint8_t reg) {
+    RFChipSelectOn();
+
+    uint8_t result = RFSendStrobe(reg);
+
+    RFChipSelectOff();
 
     return result;
+}
+
+// Enters Tx mode
+void RFEnterTxMode(void) {
+    //TODO UNBLOCK THIS
+    //RFSendStrobe(STX);
+}
+
+// Flushes the Tx FIFO
+void RFFlushTx(void) {
+    RFSendStrobe(SFTX);
+}
+
+// Enters Rx mode
+void RFEnterRxMode(void) {
+    RFSendStrobe(SRX);
+}
+
+// Flushes the Rx FIFO
+void RFFlushRx(void) {
+    RFSendStrobe(SFRX);
+}
+
+/*
+ * RFTransmitPacket(bytes[])
+ *  Must give 20 bytes!
+ *      4B: TIME[32b]
+ *      6B: ACCEL[16b + 16b + 16b]
+ *      6B: GRYO[16b + 16b + 16b]
+ *      4B: ALT[20b] + TEMP[12b]
+ */
+void RFTransmitPacket(uint8_t bytes[]) {
+    //Wait for an empty FIFO
+    while(RFReadRegisterCS(TXBYTES | READ_BYTE) != 0);
+
+    //Send bytes
+    RFChipSelectOn();
+
+    //Send RF Address
+    RFWriteRegister(FIFO, RF_ADDRESS);
+
+    //Send payload
+    uint8_t i;
+    for(i = 0; i < RF_PACKET_LENGTH; i++) {
+        RFWriteRegister(FIFO, bytes[i]);
+    }
+
+    //Get status and check for TX FIFO underflow
+    uint8_t status = RFSendStrobeCS(SNOP);
+    if((status >> 4) == 7) {
+        //TX underflow, flush buffer and enter tx mode
+        RFFlushTx();
+        RFEnterTxMode();
+    }
+
+    RFChipSelectOff();
+}
+
+void RFReceivePacketHandler(void) {
 
 }
 
-uint8_t RFCC2500SendStrobe(uint8_t reg) {
-    RFCC2500ChipSelectOn();
-
-    uint8_t result = RFCC2500WriteByte(reg);
-
-    RFCC2500ChipSelectOff();
-
-    return result;
-}
-
-uint8_t InitRFCC2500(void) {
+uint8_t InitRF(void) {
     // SPI SETUP
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOD)) {}
@@ -213,7 +310,7 @@ uint8_t InitRFCC2500(void) {
     SSIConfigSetExpClk(SSI1_BASE, SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, RF_SSI_DATA_RATE, 8);
 
     //Raise the Chip Select line (disable the chip)
-    RFCC2500ChipSelectOff();
+    RFChipSelectOff();
     SSIEnable(SSI1_BASE);
     SysCtlDelay(1000);
 
@@ -223,23 +320,70 @@ uint8_t InitRFCC2500(void) {
 
     //CC2500 SETUP
     //Reset the CC2500
-    RFCC2500SendStrobe(SRES);
+    RFSendStrobeCS(SRES);
     SysCtlDelay(1000);
 
     //Check status of the CC2500 (bottom 4 bits is the available slots in the FIFO should be all 1s)
-    uint8_t status = RFCC2500SendStrobe(SNOP);
+    uint8_t status = RFSendStrobeCS(SNOP);
     if(status>>4){
-        SerialPrint("[CC2500] Status: ERR (");
+        SerialPrint("[RF] Status: ERR (");
         SerialPrintInt(status);
         SerialPrintln(")");
     } else {
-        SerialPrint("[CC2500] Status: OK (");
+        SerialPrint("[RF] Status: OK (");
         SerialPrintInt(status);
         SerialPrintln(")");
     }
 
-    //Initialize Configuration Variables
+    SerialPrint("[RF] TXBYTES: ");
+    SerialPrintlnInt(RFReadRegisterCS(TXBYTES | READ_BYTE));
 
+    //Initialize Configuration Variables
+    // These were obtained using the TI tool: SmartRF Studio and configuring the CC2500 for..
+    //  Data rate: 2.4kBaud, Dev.: 38kHz, Mod.: 2-FSK, RX BW: 203kHz, Optimized  for sensitivity
+    //  Fixed packet length mode. Length configured in PKTLEN register, Length: 21 Bytes
+    //   1B: ADDRESS[8b]
+    //   4B: TIME[32b]
+    //   6B: ACCEL[16b + 16b + 16b]
+    //   6B: GRYO[16b + 16b + 16b]
+    //   4B: ALT[20b] + TEMP[12b]
+
+    RFChipSelectOn();
+    RFWriteRegister(IOCFG0,   0x06);      // GDO0 as interrupt: asserts on sync, deasserts on end of packet
+
+    RFWriteRegister(PKTLEN,   RF_PACKET_LENGTH + 1);     // Packet length +1 for the address at byte 0
+    RFWriteRegister(PKTCTRL0, 0x44);      // Packet control: data whitening, CRC enabled, fixed packet length mode
+    RFWriteRegister(CHANNR,   0x01);      // Channel: 1
+
+    //RFWriteRegisterCS(ADDR,     RF_ADDRESS);    // Address: 0x69
+
+    RFWriteRegister(FSCTRL1,  0x08);
+    RFWriteRegister(FREQ2,    0x5D);
+    RFWriteRegister(FREQ1,    0x93);
+    RFWriteRegister(FREQ0,    0xB1);
+    RFWriteRegister(MDMCFG4,  0x86);
+    RFWriteRegister(MDMCFG3,  0x83);
+    RFWriteRegister(MDMCFG2,  0x03);
+    RFWriteRegister(MDMCFG1,  0x00);
+    RFWriteRegister(DEVIATN,  0x44);
+    RFWriteRegister(MCSM1,    0x0E);      // Radio state machine: stay in TX mode after sending a packet, stay in RX mode after receiving
+    RFWriteRegister(MCSM0,    0x18);
+    RFWriteRegister(FOCCFG,   0x16);
+    RFWriteRegister(FSCAL1,   0x00);
+    RFWriteRegister(FSCAL0,   0x11);
+
+    RFWriteRegister(PATABLE,  0xFE);      // Output power: 0dBm
+    //RFWriteRegister(PATABLE,  0xFF);    // Output power: +1dBm (the maximum possible, UNLIMITED POOOOWWAAAAAA!)
+    RFChipSelectOff();
+
+
+    /*RFChipSelectOn();
+    RFEnterRxMode();
+    RFChipSelectOff();
+
+    uint8_t rssi = RFSendStrobeCS(RSSI);
+    SerialPrint("[RF] RSSI: ");
+    SerialPrintlnInt(rssi);*/
 
     return 0;
 }

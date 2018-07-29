@@ -12,14 +12,20 @@
 //                CC2500 Functions
 //#############################################//
 
-uint32_t RFCC2500WriteByte(uint8_t);
+uint32_t RFWriteByte(uint8_t);
 
-uint32_t RFCC2500WriteRegister(uint8_t, uint8_t);
-uint8_t RFCC2500ReadRegister(uint8_t reg);
+uint32_t RFWriteRegister(uint8_t, uint8_t);
+uint8_t RFReadRegister(uint8_t reg);
 
-uint8_t RFCC2500ReadStatusByte();
+uint32_t RFWriteRegisterCS(uint8_t, uint8_t);
+uint8_t RFReadRegisterCS(uint8_t reg);
 
-uint8_t InitRFCC2500(void);
+uint8_t RFSendStrobeCS(uint8_t reg);
+
+void RFEnterTxMode(void);
+void RFEnterRxMode(void);
+
+uint8_t InitRF(void);
 
 
 

@@ -13,6 +13,9 @@
 //                    Defines
 //#############################################//
 
+#define SENS_ACCEL_UPDATE_PERIOD    2
+#define SENS_GYRO_UPDATE_PERIOD     2
+#define SENS_ALT_UPDATE_PERIOD      1000
 
 
 //#############################################//
@@ -32,6 +35,7 @@ uint8_t Task_StatusUpdate_Init(void) {
 
 _Bool Task_StatusUpdate_Exec(uint8_t taskID){
     //Super basic taskExample, send the current time every second
+
     SerialPrintlnInt(currentTime);
 
     // Returns true to set the task back to IDLE state
@@ -79,7 +83,7 @@ void Setup(void) {
     // Add peripheral initializations here
     InitScheduler();
     InitSerial(&SerialOnCharReceived, &SerialOnLineReceived);
-    InitRFCC2500();
+    InitRF();
 
     // Add Tasks Here
     //AddTaskTime(&Task_StatusUpdate_Init, &Task_StatusUpdate_Exec, 1000);
@@ -94,7 +98,6 @@ void Setup(void) {
 void Loop(void) {
     UpdateScheduler();
 }
-
 
 //#############################################//
 //                  Main Function
