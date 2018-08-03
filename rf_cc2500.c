@@ -129,18 +129,18 @@
 #define RF_SSI_GPIO_RX      GPIO_PIN_2
 #define RF_SSI_GPIO_TX      GPIO_PIN_3
 
-//PE5 connected to GDO0 which acts as an interrupt pin for a received packet
+// PE5 connected to GDO0 which acts as an interrupt pin for a received packet
 #define RF_GPIO_INTERRUPT   GPIO_PIN_5
 
 #define RF_ADDRESS          69
-#define RF_PACKET_LENGTH    20
+#define RF_PACKET_LENGTH    21
 
 
 //#############################################//
 //                CC2500 Variables
 //#############################################//
 
-
+_Bool RF_packetReceived = false;
 
 //#############################################//
 //                CC2500 Functions
@@ -232,8 +232,12 @@ uint8_t RFSendStrobeCS(uint8_t reg) {
 
 // Enters Tx mode
 void RFEnterTxMode(void) {
-    //TODO UNBLOCK THIS
-    //RFSendStrobe(STX);
+    RFSendStrobe(STX);
+}
+
+// Enters Tx mode, handles CS
+void RFEnterTxModeCS(void) {
+    RFSendStrobeCS(STX);
 }
 
 // Flushes the Tx FIFO
@@ -244,6 +248,11 @@ void RFFlushTx(void) {
 // Enters Rx mode
 void RFEnterRxMode(void) {
     RFSendStrobe(SRX);
+}
+
+// Enters Rx mode, handles CS
+void RFEnterRxModeCS(void) {
+    RFSendStrobeCS(SRX);
 }
 
 // Flushes the Rx FIFO
@@ -258,10 +267,12 @@ void RFFlushRx(void) {
  *      6B: ACCEL[16b + 16b + 16b]
  *      6B: GRYO[16b + 16b + 16b]
  *      4B: ALT[20b] + TEMP[12b]
+ *
+ *  The Address Byte is automatically added
  */
 void RFTransmitPacket(uint8_t bytes[]) {
     //Wait for an empty FIFO
-    while(RFReadRegisterCS(TXBYTES | READ_BYTE) != 0);
+    while(RFReadRegisterCS(TXBYTES) != 0);
 
     //Send bytes
     RFChipSelectOn();
@@ -286,8 +297,43 @@ void RFTransmitPacket(uint8_t bytes[]) {
     RFChipSelectOff();
 }
 
-void RFReceivePacketHandler(void) {
+/*
+ * RFReceivePacket(*receivedPacket[21])
+ *  Must give array of size 21 bytes!
+ *      1B: ADDRESS[8b]
+ *      4B: TIME[32b]
+ *      6B: ACCEL[16b + 16b + 16b]
+ *      6B: GRYO[16b + 16b + 16b]
+ *      4B: ALT[20b] + TEMP[12b]
+ */
+_Bool RFReceivePacket(uint8_t *receivedPacket) {
+    if(RFReadRegisterCS(RXBYTES) < RF_PACKET_LENGTH) return false;
 
+    RFChipSelectOn();
+
+    // Send read command as burst
+    RFWriteByte( FIFO | READ_BURST);
+
+    uint8_t i;
+    for(i = 0; i < RF_PACKET_LENGTH;i++) {
+        *(receivedPacket + i) = RFWriteByte(0x00);
+    }
+
+    RFChipSelectOff();
+    return true;
+}
+
+void RFReceivePacketHandler(void) {
+    // GDO0 as interrupt: Associated to the RX FIFO: Asserts when RX FIFO is..
+    //  filled at or above the RX FIFO threshold or the end of packet is..
+    //  reached. De-asserts when the RX FIFO is empty.
+    if((GPIOPinRead(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT) && RF_GPIO_INTERRUPT) == 0) {
+        //De-assert: RX FIFO is empty
+        RF_packetReceived = false;
+    } else {
+        //Assert: END OF PACKET
+        RF_packetReceived = true;
+    }
 }
 
 uint8_t InitRF(void) {
@@ -311,6 +357,18 @@ uint8_t InitRF(void) {
 
     //Raise the Chip Select line (disable the chip)
     RFChipSelectOff();
+
+    // RF_Interrupt Setup (PE5)
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOE)) {}
+
+    GPIOPinTypeGPIOInput(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
+
+    // Register, configure and enable the GDO0 interrupt handler
+    GPIOIntRegister(GPIO_PORTE_BASE, RFReceivePacketHandler);
+    GPIOIntTypeSet(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT, GPIO_BOTH_EDGES);
+    GPIOIntEnable(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
+
     SSIEnable(SSI1_BASE);
     SysCtlDelay(1000);
 
@@ -349,9 +407,12 @@ uint8_t InitRF(void) {
     //   4B: ALT[20b] + TEMP[12b]
 
     RFChipSelectOn();
-    RFWriteRegister(IOCFG0,   0x06);      // GDO0 as interrupt: asserts on sync, deasserts on end of packet
 
-    RFWriteRegister(PKTLEN,   RF_PACKET_LENGTH + 1);     // Packet length +1 for the address at byte 0
+    RFWriteRegister(IOCFG0,   0x01);      // GDO0 as interrupt: Associated to the RX FIFO: Asserts when RX FIFO is..
+                                          //  filled at or above the RX FIFO threshold or the end of packet is..
+                                          //  reached. De-asserts when the RX FIFO is empty.
+
+    RFWriteRegister(PKTLEN,   RF_PACKET_LENGTH);     // Packet length +1 for the address at byte 0
     RFWriteRegister(PKTCTRL0, 0x44);      // Packet control: data whitening, CRC enabled, fixed packet length mode
     RFWriteRegister(CHANNR,   0x01);      // Channel: 1
 

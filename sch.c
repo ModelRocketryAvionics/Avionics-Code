@@ -32,11 +32,11 @@
 //Set this to 0 to setup SysTick elsewhere, will break TimerTasks
 #define SYSTICK_ENABLE 1
 #if SYSTICK_ENABLE == 1
-#define SYSTICK_PERIOD 80000    //80,000 = 1 millisecond @ 80MHz
+//#define SYSTICK_PERIOD 80000    //80,000 = 1 millisecond @ 80MHz
 
 //Declare SysTick Functions explicitly for use in earlier functions
 // Unfortunately this is a bit messy up here, plz forgive me!
-uint8_t InitSysTick(void);
+uint8_t InitSysTick(uint32_t sysTickPeriod);
 void SysTickInterruptHandler(void);
 #endif
 
@@ -74,6 +74,12 @@ struct TaskTimerStructure TaskTimerList[MAX_NUMBER_OF_TASKS];
 //#############################################//
 //               Scheduler Functions
 //#############################################//
+
+
+uint8_t VoidInit(void) {
+    // Do nothing.
+    return 0;
+}
 
 /*
  * GetTaskState(taskID)
@@ -171,10 +177,10 @@ uint8_t AddTaskTime(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), uint3
  * InitScheduler()
  *  Initializes the Scheduler, this function configures SysTick timer if enabled.
  */
-uint8_t InitScheduler() {
+uint8_t InitScheduler(uint32_t sysTickPeriod) {
 
 #if SYSTICK_ENABLE == 1
-    InitSysTick();
+    InitSysTick(sysTickPeriod);
 #endif
 
     return 0;
@@ -273,11 +279,11 @@ uint32_t currentTime = 0;
 //#############################################//
 //                SysTick Functions
 //#############################################//
-uint8_t InitSysTick() {
+uint8_t InitSysTick(uint32_t sysTickPeriod) {
     IntMasterDisable();
     SysTickDisable();
 
-    SysTickPeriodSet(SYSTICK_PERIOD - 1);
+    SysTickPeriodSet(sysTickPeriod - 1);
 
     //Force the counter to reload by writing any value to this register
     NVIC_ST_CURRENT_R = 0;

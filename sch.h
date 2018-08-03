@@ -11,6 +11,7 @@
 //#############################################//
 //               Scheduler Functions
 //#############################################//
+uint8_t VoidInit(void);
 uint8_t GetTaskState(uint8_t taskID);
 void SetTaskState(uint8_t taskID, uint8_t taskState);
 
@@ -18,7 +19,7 @@ uint8_t AddTask(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), _Bool (*t
 uint8_t AddTaskCond(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), _Bool *taskCondition);
 uint8_t AddTaskTime(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), uint32_t updatePeriod);
 
-uint8_t InitScheduler();
+uint8_t InitScheduler(uint32_t sysTickPeriod);
 void UpdateScheduler();
 
 #if SYSTICK_ENABLE == 1
@@ -30,7 +31,7 @@ extern uint32_t currentTime = 0;
 //#############################################//
 //                SysTick Functions
 //#############################################//
-uint8_t InitSysTick();
+uint8_t InitSysTick(uint32_t sysTickPeriod);
 void SysTickInterruptHandler(void);
 #endif
 

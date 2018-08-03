@@ -25,7 +25,7 @@
 //#############################################//
 //                 Serial Defines
 //#############################################//
-#define SERIAL_DISABLE 0
+#define SERIAL_DISABLE 1
 
 #define SERIAL_BAUDRATE 115200
 
@@ -34,8 +34,11 @@
 #define SERIAL_LF 10
 #define SERIAL_CR 13
 
-#define SERIAL_IGNORE_CARRIAGE_RETURN 0
+#define SERIAL_IGNORE_CARRIAGE_RETURN 1
 #define SERIAL_IGNORE_LINE_FEED 0
+
+#define SERIAL_SEND_CARRIAGE_RETURN 1
+#define SERIAL_SEND_LINE_FEED 1
 
 //#############################################//
 //                Serial Variables
@@ -79,10 +82,10 @@ void SerialPrint(char string[]) {
  */
 void SerialPrintln(char string[]) {
     SerialPrint(string);
-#if SERIAL_IGNORE_CARRIAGE_RETURN == 0
+#if SERIAL_SEND_CARRIAGE_RETURN == 1
     SerialWrite(SERIAL_CR);
 #endif
-#if SERIAL_IGNORE_LINE_FEED == 0
+#if SERIAL_SEND_LINE_FEED == 1
     SerialWrite(SERIAL_LF);
 #endif
 }

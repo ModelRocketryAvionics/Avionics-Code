@@ -13,32 +13,53 @@
 //                    Defines
 //#############################################//
 
-#define SENS_ACCEL_UPDATE_PERIOD    2
-#define SENS_GYRO_UPDATE_PERIOD     2
-#define SENS_ALT_UPDATE_PERIOD      1000
+#define SCHEDULER_SYSTICK_PERIOD        80000
+#define SCHEDULER_MILLISECOND_PERIOD    1
 
+#define SENS_ACCEL_UPDATE_PERIOD        2
+#define SENS_GYRO_UPDATE_PERIOD         2
+#define SENS_ALT_UPDATE_PERIOD          1000
+
+#define RF_PACKET_LENGTH                21
 
 //#############################################//
 //                   Variables
 //#############################################//
 
 extern uint32_t currentTime;
+extern _Bool RF_packetReceived;
 
 //#############################################//
 //                 User Functions
 //#############################################//
 
-uint8_t Task_StatusUpdate_Init(void) {
+uint8_t Task_Millis_Init(void) {
     //Nothing to initialize
     return 0;
 }
 
-_Bool Task_StatusUpdate_Exec(uint8_t taskID){
-    //Super basic taskExample, send the current time every second
+_Bool Task_Millis_Exec(uint8_t taskID){
+    // Task for things that need to execute/check every ms
 
-    SerialPrintlnInt(currentTime);
+    // ..Put stuff here..
 
     // Returns true to set the task back to IDLE state
+    return true;
+}
+
+_Bool Task_OnPacketReceived(uint8_t taskID) {
+    uint8_t receivedPacket[RF_PACKET_LENGTH];
+
+    // Get the received packet, this function returns false if it failed
+    if(RFReceivePacket(&(receivedPacket[0]))) {
+        // Print out the received packet as integers (each byte is a line)
+        SerialPrintln("[RF] PACKET RECEIVED!");
+        uint8_t i;
+        for (i = 0; i < RF_PACKET_LENGTH; i++) {
+            SerialPrint("     > ");
+            SerialPrintlnInt(receivedPacket[i]);
+        }
+    }
     return true;
 }
 
@@ -50,7 +71,7 @@ _Bool Task_StatusUpdate_Exec(uint8_t taskID){
  */
 void SerialOnCharReceived(char character) {
     //Echo the character
-    SerialWrite(character);
+    //SerialWrite(character);
 }
 
 /*
@@ -63,14 +84,26 @@ void SerialOnCharReceived(char character) {
 void SerialOnLineReceived(volatile char* stringStart, volatile char* stringEnd) {
     //Do nothing.. Below snippet is provided as an example
 
-    /*
     uint8_t length = stringEnd - stringStart;
 
-    char *character;
-    for (character = stringStart; character < stringEnd; character++) {
-        //Iterate through each character (useful if you want to do command parsing)..
+    // If its the right length for a packet (minus address byte), send it!
+    if(length == RF_PACKET_LENGTH - 1) {
+        RFEnterTxModeCS();
+        uint8_t bytes[RF_PACKET_LENGTH - 1];
+        uint8_t i = 0;
+        volatile char *c;
+        for(c = stringStart; c < stringEnd; c++) {
+            bytes[i] = (uint8_t)(*c);
+            i++;
+        }
+        RFTransmitPacket(bytes);
+        return;
     }
-    */
+
+    if(*stringStart == 'r') {
+        SerialPrintln("[RF] Entered RX Mode");
+        RFEnterRxModeCS();
+    }
 }
 
 //#############################################//
@@ -81,12 +114,13 @@ void Setup(void) {
     SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
 
     // Add peripheral initializations here
-    InitScheduler();
+    InitScheduler(SCHEDULER_SYSTICK_PERIOD);
     InitSerial(&SerialOnCharReceived, &SerialOnLineReceived);
     InitRF();
 
     // Add Tasks Here
-    //AddTaskTime(&Task_StatusUpdate_Init, &Task_StatusUpdate_Exec, 1000);
+    AddTaskTime(&Task_Millis_Init, &Task_Millis_Exec, SCHEDULER_MILLISECOND_PERIOD);
+    AddTaskCond(&VoidInit, &Task_OnPacketReceived, &RF_packetReceived);
 
     //
 }
