@@ -104,6 +104,43 @@ void SerialPrintlnInt(int integer) {
     SerialPrintln(buffer);
 }
 
+char* SerialEndOfString(char string[]) {
+    char *character;
+    for (character = string; *character != '\0'; character++) {}
+	return (character - 1);
+}
+
+uint8_t SerialLengthOfString(char string[]) {
+	return (uint8_t)(SerialEndOfString(string) - string);
+}
+
+int SerialStringToInt(char string[]) {
+	// Create a lookup table for parsing the number
+    static const uint32_t scale[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+	
+	int output = 0;
+	uint8_t index = 0;
+	uint32_t scale = 1;
+	
+	char *character = SerialEndOfString(string);
+	for (; character >= string; character--) {
+		// Iterate through characters starting from the end and moving to the start
+		
+		// Ensure its a number or negative
+		if(*character >= '0' && *character <= '9') {
+			output += (*character - '0') * scale;
+			scale *= 10;
+		} else if(*character == '-') {
+			//This is the last thing that is encountered, or else its an error
+			return -output;
+		} else {
+			return 0;
+		}
+	}
+	
+	return output;
+}
+
 uint8_t InitSerial(void (*onCharReceived)(char), void (*onLineReceived)(volatile char*, volatile char*)) {
     serialOnCharReceived = onCharReceived;
     serialOnLineReceived = onLineReceived;
