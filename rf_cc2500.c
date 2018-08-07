@@ -338,7 +338,7 @@ _Bool RFReceivePacket(uint8_t *receivedPacket) {
 
     RFChipSelectOff();
 
-    RFFlushRxCS();
+    //RFFlushRxCS();
 
     //SerialPrintlnInt(RFReadRegisterCS(RXBYTES));
     return true;

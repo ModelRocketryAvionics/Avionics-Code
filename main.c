@@ -68,7 +68,7 @@ _Bool Task_OnPacketReceived(uint8_t taskID) {
         SerialPrintln("[RF] PACKET RECEIVED!");
         SerialPrint(" > ");
         uint8_t i;
-        char decodedMessage[RF_PACKET_LENGTH + 1];
+        char decodedMessage[RF_PACKET_LENGTH];
         for (i = 0; i < RF_RX_PACKET_LENGTH; i++) {
             SerialPrintInt(receivedPacket[i]); SerialPrint(" ");
 
@@ -76,7 +76,7 @@ _Bool Task_OnPacketReceived(uint8_t taskID) {
                 decodedMessage[i-1] = (char)(receivedPacket[i]);
         }
         // Add end of string character
-        decodedMessage[RF_PACKET_LENGTH] = '\0';
+        decodedMessage[RF_PACKET_LENGTH-1] = '\0';
         SerialPrintln("");
 
         SerialPrint(" > "); SerialPrint(decodedMessage); SerialPrintln("");
