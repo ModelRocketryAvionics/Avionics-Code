@@ -25,11 +25,11 @@
 //#############################################//
 //                 Serial Defines
 //#############################################//
-#define SERIAL_DISABLE 1
+#define SERIAL_ENABLE 1
 
 #define SERIAL_BAUDRATE 115200
 
-#define SERIAL_BUFFER_SIZE 16
+#define SERIAL_BUFFER_SIZE 32
 
 #define SERIAL_LF 10
 #define SERIAL_CR 13
@@ -59,7 +59,7 @@ void (*serialOnLineReceived)(volatile char*, volatile char*);
  *  puts a character onto the out buffer of UART0
  */
 void SerialWrite(char character) {
-#if SERIAL_DISABLE == 0
+#if SERIAL_ENABLE == 1
     UARTCharPut(UART0_BASE, character);
 #endif
 }
@@ -115,14 +115,10 @@ uint8_t SerialLengthOfString(char string[]) {
 }
 
 int SerialStringToInt(char string[]) {
-	// Create a lookup table for parsing the number
-    static const uint32_t scale[10] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
-	
 	int output = 0;
-	uint8_t index = 0;
 	uint32_t scale = 1;
-	
 	char *character = SerialEndOfString(string);
+	
 	for (; character >= string; character--) {
 		// Iterate through characters starting from the end and moving to the start
 		

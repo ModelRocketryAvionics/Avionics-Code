@@ -18,6 +18,7 @@ void SetTaskState(uint8_t taskID, uint8_t taskState);
 uint8_t AddTask(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), _Bool (*taskConditionFunction)(void));
 uint8_t AddTaskCond(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), _Bool *taskCondition);
 uint8_t AddTaskTime(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t), uint32_t updatePeriod);
+uint8_t AddTaskIdle(uint8_t (*taskInit)(void), _Bool (*taskExec)(uint8_t));
 
 uint8_t InitScheduler(uint32_t sysTickPeriod);
 void UpdateScheduler();

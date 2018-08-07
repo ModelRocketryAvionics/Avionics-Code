@@ -8,6 +8,7 @@
 #include "sch.h"
 #include "ser.h"
 #include "rf_cc2500.h"
+#include "led.h"
 
 //#############################################//
 //                    Defines
@@ -44,6 +45,16 @@ _Bool Task_Millis_Exec(uint8_t taskID){
     // ..Put stuff here..
 
     // Returns true to set the task back to IDLE state
+    return true;
+}
+
+uint8_t Task_Idle_Init(void) {
+    InitLed();
+    return 0;
+}
+
+_Bool Task_Idle_Exec(uint8_t taskID){
+    LedToggle();
     return true;
 }
 
@@ -89,6 +100,7 @@ void SerialOnLineReceived(volatile char* stringStart, volatile char* stringEnd) 
     // If its the right length for a packet (minus address byte), send it!
     if(length == RF_PACKET_LENGTH - 1) {
         RFEnterTxModeCS();
+
         uint8_t bytes[RF_PACKET_LENGTH - 1];
         uint8_t i = 0;
         volatile char *c;
@@ -97,12 +109,13 @@ void SerialOnLineReceived(volatile char* stringStart, volatile char* stringEnd) 
             i++;
         }
         RFTransmitPacket(bytes);
+        SerialPrintln("[RF] Sent Packet");
         return;
     }
 
     if(*stringStart == 'r') {
-        SerialPrintln("[RF] Entered RX Mode");
         RFEnterRxModeCS();
+        SerialPrintln("[RF] Entered RX Mode");
     }
 }
 
@@ -121,6 +134,8 @@ void Setup(void) {
     // Add Tasks Here
     AddTaskTime(&Task_Millis_Init, &Task_Millis_Exec, SCHEDULER_MILLISECOND_PERIOD);
     AddTaskCond(&VoidInit, &Task_OnPacketReceived, &RF_packetReceived);
+
+    AddTaskIdle(&Task_Idle_Init, &Task_Idle_Exec);
 
     //
 }

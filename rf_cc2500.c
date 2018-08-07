@@ -142,6 +142,8 @@
 
 _Bool RF_packetReceived = false;
 
+uint32_t count = 0;
+
 //#############################################//
 //                CC2500 Functions
 //#############################################//
@@ -272,23 +274,29 @@ void RFFlushRx(void) {
  */
 void RFTransmitPacket(uint8_t bytes[]) {
     //Wait for an empty FIFO
-    while(RFReadRegisterCS(TXBYTES) != 0);
+    while(RFReadRegisterCS(TXBYTES) != 0) {
+        SerialPrintlnInt(RFReadRegisterCS(TXBYTES));
+    }
 
     //Send bytes
     RFChipSelectOn();
+
+    // Send write command as burst
+    //RFWriteByte( FIFO | WRITE_BURST);
 
     //Send RF Address
     RFWriteRegister(FIFO, RF_ADDRESS);
 
     //Send payload
     uint8_t i;
-    for(i = 0; i < RF_PACKET_LENGTH; i++) {
+    for(i = 0; i < RF_PACKET_LENGTH-1; i++) {
         RFWriteRegister(FIFO, bytes[i]);
     }
 
     //Get status and check for TX FIFO underflow
     uint8_t status = RFSendStrobeCS(SNOP);
     if((status >> 4) == 7) {
+
         //TX underflow, flush buffer and enter tx mode
         RFFlushTx();
         RFEnterTxMode();
@@ -324,6 +332,8 @@ _Bool RFReceivePacket(uint8_t *receivedPacket) {
 }
 
 void RFReceivePacketHandler(void) {
+    GPIOIntClear(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
+
     // GDO0 as interrupt: Associated to the RX FIFO: Asserts when RX FIFO is..
     //  filled at or above the RX FIFO threshold or the end of packet is..
     //  reached. De-asserts when the RX FIFO is empty.
@@ -333,6 +343,8 @@ void RFReceivePacketHandler(void) {
     } else {
         //Assert: END OF PACKET
         RF_packetReceived = true;
+
+        count++;
     }
 }
 
@@ -367,7 +379,6 @@ uint8_t InitRF(void) {
     // Register, configure and enable the GDO0 interrupt handler
     GPIOIntRegister(GPIO_PORTE_BASE, RFReceivePacketHandler);
     GPIOIntTypeSet(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT, GPIO_BOTH_EDGES);
-    GPIOIntEnable(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
 
     SSIEnable(SSI1_BASE);
     SysCtlDelay(1000);
@@ -433,18 +444,20 @@ uint8_t InitRF(void) {
     RFWriteRegister(FSCAL1,   0x00);
     RFWriteRegister(FSCAL0,   0x11);
 
-    RFWriteRegister(PATABLE,  0xFE);      // Output power: 0dBm
-    //RFWriteRegister(PATABLE,  0xFF);    // Output power: +1dBm (the maximum possible, UNLIMITED POOOOWWAAAAAA!)
+    //RFWriteRegister(PATABLE,  0xFE);      // Output power: 0dBm
+    RFWriteRegister(PATABLE,  0xFF);    // Output power: +1dBm (the maximum possible, UNLIMITED POOOOWWAAAAAA!)
     RFChipSelectOff();
 
+    // Enable the RF_Received Interrupt
+    GPIOIntClear(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
+    GPIOIntEnable(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
 
-    /*RFChipSelectOn();
-    RFEnterRxMode();
-    RFChipSelectOff();
+    SerialPrintln("[RF] Entered RX Mode");
+    RFEnterRxModeCS();
 
     uint8_t rssi = RFSendStrobeCS(RSSI);
     SerialPrint("[RF] RSSI: ");
-    SerialPrintlnInt(rssi);*/
+    SerialPrintlnInt(rssi);
 
     return 0;
 }
