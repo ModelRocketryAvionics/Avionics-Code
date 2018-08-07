@@ -60,7 +60,7 @@ _Bool Task_Idle_Exec(uint8_t taskID){
 }
 
 _Bool Task_OnPacketReceived(uint8_t taskID) {
-    uint8_t receivedPacket[RF_PACKET_LENGTH];
+    uint8_t receivedPacket[RF_RX_PACKET_LENGTH];
 
     // Get the received packet, this function returns false if it failed
     if(RFReceivePacket(&(receivedPacket[0]))) {
@@ -73,7 +73,7 @@ _Bool Task_OnPacketReceived(uint8_t taskID) {
             SerialPrintInt(receivedPacket[i]); SerialPrint(" ");
 
             if(i > 0 && i < RF_PACKET_LENGTH+1)
-                decodedMessage[i] = (char)(receivedPacket[i]);
+                decodedMessage[i-1] = (char)(receivedPacket[i]);
         }
         // Add end of string character
         decodedMessage[RF_PACKET_LENGTH] = '\0';

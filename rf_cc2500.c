@@ -445,10 +445,10 @@ uint8_t InitRF(void) {
 
     RFWriteRegister(PKTLEN,   RF_PACKET_LENGTH);     // Packet length +1 for the address at byte 0
     RFWriteRegister(PKTCTRL0, 0x44);      // Packet control: data whitening, CRC enabled, fixed packet length mode
-    RFWriteRegister(PKTCTRL1, 0x07);      // Packet control: CRC autoflush(disabled), append status, address check
+    RFWriteRegister(PKTCTRL1, 0x04);      // Packet control: CRC autoflush(disabled), append status, address check(disabled)
     RFWriteRegister(CHANNR,   0x01);      // Channel: 1
 
-    RFWriteRegisterCS(ADDR,     RF_ADDRESS);    // Address: 0x69
+    //RFWriteRegisterCS(ADDR,     RF_ADDRESS);    // Address: 0x69
 
     RFWriteRegister(FSCTRL1,  0x08);
     RFWriteRegister(FREQ2,    0x5D);
