@@ -22,6 +22,7 @@
 #define SENS_ALT_UPDATE_PERIOD          1000
 
 #define RF_PACKET_LENGTH                21
+#define RF_RX_PACKET_LENGTH             RF_PACKET_LENGTH + 2
 
 //#############################################//
 //                   Variables
@@ -68,10 +69,11 @@ _Bool Task_OnPacketReceived(uint8_t taskID) {
         SerialPrint(" > ");
         uint8_t i;
         char decodedMessage[RF_PACKET_LENGTH + 1];
-        for (i = 0; i < RF_PACKET_LENGTH; i++) {
+        for (i = 0; i < RF_RX_PACKET_LENGTH; i++) {
             SerialPrintInt(receivedPacket[i]); SerialPrint(" ");
 
-            decodedMessage[i] = (char)(receivedPacket[i]);
+            if(i > 0 && i < RF_PACKET_LENGTH+1)
+                decodedMessage[i] = (char)(receivedPacket[i]);
         }
         // Add end of string character
         decodedMessage[RF_PACKET_LENGTH] = '\0';

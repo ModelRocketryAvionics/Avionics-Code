@@ -134,6 +134,7 @@
 
 #define RF_ADDRESS          69
 #define RF_PACKET_LENGTH    21
+#define RF_RX_PACKET_LENGTH RF_PACKET_LENGTH + 2
 
 
 //#############################################//
@@ -312,12 +313,14 @@ void RFTransmitPacket(uint8_t bytes[]) {
 
 /*
  * RFReceivePacket(*receivedPacket[21])
- *  Must give array of size 21 bytes!
+ *  Must give array of size 23 bytes!
  *      1B: ADDRESS[8b]
  *      4B: TIME[32b]
  *      6B: ACCEL[16b + 16b + 16b]
  *      6B: GRYO[16b + 16b + 16b]
  *      4B: ALT[20b] + TEMP[12b]
+ *      1B: RSSI[8b]
+ *      1B: CRC[8b]
  */
 _Bool RFReceivePacket(uint8_t *receivedPacket) {
     if(RFReadRegisterCS(RXBYTES) < RF_PACKET_LENGTH) return false;
@@ -328,7 +331,7 @@ _Bool RFReceivePacket(uint8_t *receivedPacket) {
     RFWriteByte( FIFO | READ_BURST);
 
     uint8_t i;
-    for(i = 0; i < RF_PACKET_LENGTH;i++) {
+    for(i = 0; i < RF_RX_PACKET_LENGTH;i++) {
         *(receivedPacket + i) = RFWriteByte(0x00);
     }
 
