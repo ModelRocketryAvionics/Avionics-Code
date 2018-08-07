@@ -262,6 +262,11 @@ void RFFlushRx(void) {
     RFSendStrobe(SFRX);
 }
 
+// Flushes the Rx FIFO, handles CS
+void RFFlushRxCS(void) {
+    RFSendStrobeCS(SFRX);
+}
+
 /*
  * RFTransmitPacket(bytes[])
  *  Must give 20 bytes!
@@ -327,7 +332,12 @@ _Bool RFReceivePacket(uint8_t *receivedPacket) {
         *(receivedPacket + i) = RFWriteByte(0x00);
     }
 
+
     RFChipSelectOff();
+
+    RFFlushRxCS();
+
+    //SerialPrintlnInt(RFReadRegisterCS(RXBYTES));
     return true;
 }
 
@@ -337,7 +347,8 @@ void RFReceivePacketHandler(void) {
     // GDO0 as interrupt: Associated to the RX FIFO: Asserts when RX FIFO is..
     //  filled at or above the RX FIFO threshold or the end of packet is..
     //  reached. De-asserts when the RX FIFO is empty.
-    if((GPIOPinRead(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT) && RF_GPIO_INTERRUPT) == 0) {
+    uint32_t pin = GPIOPinRead(GPIO_PORTE_BASE, RF_GPIO_INTERRUPT);
+    if((pin & RF_GPIO_INTERRUPT) == 0) {
         //De-assert: RX FIFO is empty
         RF_packetReceived = false;
     } else {
@@ -346,6 +357,12 @@ void RFReceivePacketHandler(void) {
 
         count++;
     }
+}
+
+void RFPrintStatus(void) {
+    SerialPrint("[RF] Status Byte:  "); SerialPrintlnInt(RFSendStrobeCS(SNOP));
+    SerialPrint("[RF] RXBytes:      "); SerialPrintlnInt(RFReadRegisterCS(RXBYTES));
+    SerialPrint("[RF] TXBytes:      "); SerialPrintlnInt(RFReadRegisterCS(TXBYTES));
 }
 
 uint8_t InitRF(void) {
@@ -425,9 +442,10 @@ uint8_t InitRF(void) {
 
     RFWriteRegister(PKTLEN,   RF_PACKET_LENGTH);     // Packet length +1 for the address at byte 0
     RFWriteRegister(PKTCTRL0, 0x44);      // Packet control: data whitening, CRC enabled, fixed packet length mode
+    RFWriteRegister(PKTCTRL1, 0x07);      // Packet control: CRC autoflush(disabled), append status, address check
     RFWriteRegister(CHANNR,   0x01);      // Channel: 1
 
-    //RFWriteRegisterCS(ADDR,     RF_ADDRESS);    // Address: 0x69
+    RFWriteRegisterCS(ADDR,     RF_ADDRESS);    // Address: 0x69
 
     RFWriteRegister(FSCTRL1,  0x08);
     RFWriteRegister(FREQ2,    0x5D);

@@ -30,6 +30,8 @@ void RFEnterRxModeCS(void);
 void RFTransmitPacket(uint8_t bytes[]);
 _Bool RFReceivePacket(uint8_t *receivedPacket);
 
+void RFPrintStatus(void);
+
 uint8_t InitRF(void);
 
 

@@ -65,11 +65,19 @@ _Bool Task_OnPacketReceived(uint8_t taskID) {
     if(RFReceivePacket(&(receivedPacket[0]))) {
         // Print out the received packet as integers (each byte is a line)
         SerialPrintln("[RF] PACKET RECEIVED!");
+        SerialPrint(" > ");
         uint8_t i;
+        char decodedMessage[RF_PACKET_LENGTH + 1];
         for (i = 0; i < RF_PACKET_LENGTH; i++) {
-            SerialPrint("     > ");
-            SerialPrintlnInt(receivedPacket[i]);
+            SerialPrintInt(receivedPacket[i]); SerialPrint(" ");
+
+            decodedMessage[i] = (char)(receivedPacket[i]);
         }
+        // Add end of string character
+        decodedMessage[RF_PACKET_LENGTH] = '\0';
+        SerialPrintln("");
+
+        SerialPrint(" > "); SerialPrint(decodedMessage); SerialPrintln("");
     }
     return true;
 }
@@ -116,6 +124,8 @@ void SerialOnLineReceived(volatile char* stringStart, volatile char* stringEnd) 
     if(*stringStart == 'r') {
         RFEnterRxModeCS();
         SerialPrintln("[RF] Entered RX Mode");
+    } else if (*stringStart == 's') {
+        RFPrintStatus();
     }
 }
 

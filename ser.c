@@ -25,20 +25,22 @@
 //#############################################//
 //                 Serial Defines
 //#############################################//
-#define SERIAL_ENABLE 1
+#define SERIAL_ENABLE                   1
 
-#define SERIAL_BAUDRATE 115200
+#define SERIAL_BAUDRATE                 115200
 
-#define SERIAL_BUFFER_SIZE 32
+#define SERIAL_BUFFER_SIZE              32
 
-#define SERIAL_LF 10
-#define SERIAL_CR 13
+#define SERIAL_LF                       10
+#define SERIAL_CR                       13
 
-#define SERIAL_IGNORE_CARRIAGE_RETURN 1
-#define SERIAL_IGNORE_LINE_FEED 0
+#define SERIAL_IGNORE_CARRIAGE_RETURN   1
+#define SERIAL_IGNORE_LINE_FEED         0
 
-#define SERIAL_SEND_CARRIAGE_RETURN 1
-#define SERIAL_SEND_LINE_FEED 1
+#define SERIAL_SEND_CARRIAGE_RETURN     1
+#define SERIAL_SEND_LINE_FEED           1
+
+#define SERIAL_END_OF_STRING_CHARACTER  '\0'
 
 //#############################################//
 //                Serial Variables
@@ -70,7 +72,7 @@ void SerialWrite(char character) {
  */
 void SerialPrint(char string[]) {
     char *character;
-    for (character = string; *character != '\0'; character++) {
+    for (character = string; *character != SERIAL_END_OF_STRING_CHARACTER; character++) {
         SerialWrite(*character);
     }
 }
@@ -106,7 +108,7 @@ void SerialPrintlnInt(int integer) {
 
 char* SerialEndOfString(char string[]) {
     char *character;
-    for (character = string; *character != '\0'; character++) {}
+    for (character = string; *character != SERIAL_END_OF_STRING_CHARACTER; character++) {}
 	return (character - 1);
 }
 
